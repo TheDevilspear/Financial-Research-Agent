@@ -1,0 +1,8 @@
+id: financial-research-agent
+description: "An institutional agent that analyzes official SEC filings, market data, and financial disclosures."
+tools:
+  - type: sec_edgar_lookup
+  - type: market_feed
+examples:
+  - title: "Apple (AAPL) Document Analysis"
+    prompt: "Find and analyze recent SEC filings for Apple (AAPL)."
