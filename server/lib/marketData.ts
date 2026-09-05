@@ -18,9 +18,74 @@ export interface FinancialQuarterPoint {
   distributions?: number;
 }
 
+export const INDIAN_TICKER_ALIASES: Record<string, string> = {
+  "SBI": "SBIN",
+  "STATE BANK OF INDIA": "SBIN",
+  "HDFC": "HDFCBANK",
+  "HDFC BANK": "HDFCBANK",
+  "ICICI": "ICICIBANK",
+  "ICICI BANK": "ICICIBANK",
+  "KOTAK": "KOTAKBANK",
+  "KOTAK BANK": "KOTAKBANK",
+  "AXIS": "AXISBANK",
+  "AXIS BANK": "AXISBANK",
+  "RIL": "RELIANCE",
+  "RELIANCE INDUSTRIES": "RELIANCE",
+  "TATA MOTORS": "TATAMOTORS",
+  "TCS": "TCS",
+  "TATA CONSULTANCY": "TCS",
+  "INFOSYS": "INFY",
+  "AIRTEL": "BHARTIARTL",
+  "BHARTI": "BHARTIARTL",
+  "L&T": "LT",
+  "LARSEN": "LT",
+  "BAJAJ FINANCE": "BAJFINANCE",
+  "BAJAJ FINSERV": "BAJAJFINSV",
+  "MARUTI SUZUKI": "MARUTI",
+  "ASIAN PAINTS": "ASIANPAINT",
+  "SUN PHARMA": "SUNPHARMA",
+  "ULTRATECH": "ULTRACEMCO",
+  "TITAN": "TITAN",
+  "NESTLE": "NESTLEIND",
+  "ZOMATO": "ETERNAL",
+  "M&M": "M&M",
+  "MAHINDRA": "M&M",
+  "POWERGRID": "POWERGRID",
+  "NTPC": "NTPC",
+  "ONGC": "ONGC",
+  "COAL INDIA": "COALINDIA",
+  "IOC": "IOC",
+  "BPCL": "BPCL"
+};
+
 export async function fetchCompanyProfile(ticker: string): Promise<CompanyProfile> {
-  const cleanTicker = ticker.toUpperCase().trim();
-  
+  const cleanTicker = ticker.toUpperCase().replace(/\.(NS|BO)$/i, "").trim();
+  const normalizedTicker = INDIAN_TICKER_ALIASES[cleanTicker] || cleanTicker;
+
+  // 1. Check Screener India first to identify if this is an Indian enterprise
+  try {
+    const screenerRes = await fetch(`https://www.screener.in/api/company/search/?q=${encodeURIComponent(normalizedTicker)}`, {
+      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" }
+    });
+    if (screenerRes.ok) {
+      const items = await screenerRes.json() as Array<{ id: number; name: string; url: string }>;
+      if (Array.isArray(items) && items.length > 0) {
+        const matched = items.find(it => it.url.includes(`/${normalizedTicker}/`)) || items[0];
+        const symMatch = matched.url.match(/\/company\/([A-Z0-9_-]+)\//);
+        const resolvedSymbol = symMatch ? symMatch[1] : normalizedTicker;
+        return {
+          ticker: resolvedSymbol,
+          name: matched.name,
+          currency: "INR",
+          exchange: "NSE"
+        };
+      }
+    }
+  } catch (e) {
+    // Continue to Yahoo
+  }
+
+  // 2. Global / US search via Yahoo
   try {
     const searchUrl = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(cleanTicker)}&quotesCount=5&newsCount=0`;
     const res = await fetch(searchUrl, {
@@ -51,13 +116,17 @@ export async function fetchCompanyProfile(ticker: string): Promise<CompanyProfil
 }
 
 export async function fetchStockHistory(ticker: string): Promise<{ points: PriceDataPoint[]; currency: string; companyName: string }> {
-  const cleanTicker = ticker.toUpperCase().trim();
-  
-  // Try direct ticker, and for Indian stocks also try .NS / .BO if 3-4 letters
-  const candidateSymbols = [cleanTicker];
-  if (!cleanTicker.includes(".")) {
-    candidateSymbols.push(`${cleanTicker}.NS`, `${cleanTicker}.BO`);
-  }
+  const cleanTicker = ticker.toUpperCase().replace(/\.(NS|BO)$/i, "").trim();
+  const normalizedTicker = INDIAN_TICKER_ALIASES[cleanTicker] || cleanTicker;
+
+  // Determine candidate symbols
+  // If Indian ticker or aliased, try .NS and .BO FIRST before generic US ticker
+  const candidateSymbols: string[] = [
+    `${normalizedTicker}.NS`,
+    `${normalizedTicker}.BO`,
+    normalizedTicker,
+    cleanTicker
+  ];
 
   for (const symbol of candidateSymbols) {
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=4mo&interval=1mo`;

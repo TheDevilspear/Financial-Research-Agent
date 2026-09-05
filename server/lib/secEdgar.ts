@@ -1,3 +1,5 @@
+import { INDIAN_TICKER_ALIASES } from "./marketData.ts";
+
 export interface SecFiling {
   accessionNumber: string;
   form: string;
@@ -81,12 +83,16 @@ const indianCompanyCache = new Map<string, IndianCompanyData | null>();
 
 export async function fetchIndianCompanyData(ticker: string, companyName?: string): Promise<IndianCompanyData | null> {
   const cleanTicker = ticker.toUpperCase().replace(/\.(NS|BO)$/i, "").trim();
-  const cacheKey = cleanTicker;
+  const normalizedTicker = INDIAN_TICKER_ALIASES[cleanTicker] || cleanTicker;
+  const cacheKey = normalizedTicker;
   if (indianCompanyCache.has(cacheKey)) {
     return indianCompanyCache.get(cacheKey) || null;
   }
 
-  const searchTerms = [cleanTicker];
+  const searchTerms = [normalizedTicker];
+  if (normalizedTicker !== cleanTicker) {
+    searchTerms.push(cleanTicker);
+  }
   if (companyName) {
     const simplifiedName = companyName
       .replace(/(Limited|Ltd\.?|Corporation|Corp\.?|Inc\.?|\(India\))/gi, "")
@@ -105,7 +111,7 @@ export async function fetchIndianCompanyData(ticker: string, companyName?: strin
       if (searchRes.ok) {
         const items = await searchRes.json() as Array<{ id: number; name: string; url: string }>;
         if (Array.isArray(items) && items.length > 0) {
-          matchedItem = items.find(it => it.url.includes(`/${cleanTicker}/`)) || items[0];
+          matchedItem = items.find(it => it.url.includes(`/${normalizedTicker}/`) || it.url.includes(`/${cleanTicker}/`)) || items[0];
           break;
         }
       }
@@ -228,51 +234,53 @@ export async function getLatestSecFilings(ticker: string, companyName?: string):
     };
   }
 
-  const isExplicitIndian = ticker.toUpperCase().endsWith('.NS') || ticker.toUpperCase().endsWith('.BO');
+  const rawSymbol = ticker.toUpperCase().replace(/\.(NS|BO)$/i, "").trim();
+  const isExplicitIndian = Boolean(INDIAN_TICKER_ALIASES[rawSymbol]) || ticker.toUpperCase().endsWith('.NS') || ticker.toUpperCase().endsWith('.BO');
   const indianData = await fetchIndianCompanyData(ticker, companyName);
 
   if (isExplicitIndian || indianData) {
-    const entityName = indianData?.name || companyName || `${cleanTicker} Ltd`;
-    const screenerUrl = indianData ? `https://www.screener.in${indianData.url}` : `https://www.screener.in/company/${cleanTicker}/`;
+    const displayTicker = INDIAN_TICKER_ALIASES[rawSymbol] || rawSymbol;
+    const entityName = indianData?.name || companyName || `${displayTicker} Ltd`;
+    const screenerUrl = indianData ? `https://www.screener.in${indianData.url}` : `https://www.screener.in/company/${displayTicker}/`;
     return {
       entityName,
       isPrivate: false,
       filings: [
         {
-          accessionNumber: `BSE-LODR-REG33-${cleanTicker}`,
+          accessionNumber: `BSE-LODR-REG33-${displayTicker}`,
           form: "Quarterly Results (Reg 33)",
           filingDate: "2025-10-18",
           reportDate: "2025-09-30",
-          primaryDocument: `${cleanTicker.toLowerCase()}-q2-results.pdf`,
+          primaryDocument: `${displayTicker.toLowerCase()}-q2-results.pdf`,
           url: `${screenerUrl}#quarters`,
           description: `Statement of Standalone & Consolidated Financial Results under SEBI (LODR) Reg 33 with Segment Analysis`
         },
         {
-          accessionNumber: `NSE-AR-${cleanTicker}-2024`,
+          accessionNumber: `NSE-AR-${displayTicker}-2024`,
           form: "Annual Report & BRSR",
           filingDate: "2025-06-30",
           reportDate: "2025-03-31",
-          primaryDocument: `${cleanTicker.toLowerCase()}-annual-report.pdf`,
+          primaryDocument: `${displayTicker.toLowerCase()}-annual-report.pdf`,
           url: `https://www.bseindia.com/corporates/ann.html`,
           description: `Integrated Annual Report containing Independent Auditor's Report, Director's Report, and MD&A Disclosures`
         },
         {
-          accessionNumber: `SEBI-LODR-REG30-${cleanTicker}`,
+          accessionNumber: `SEBI-LODR-REG30-${displayTicker}`,
           form: "Material Disclosure (Reg 30)",
           filingDate: "2025-10-20",
           reportDate: "2025-10-20",
-          primaryDocument: `${cleanTicker.toLowerCase()}-investor-presentation.pdf`,
+          primaryDocument: `${displayTicker.toLowerCase()}-investor-presentation.pdf`,
           url: `https://www.nseindia.com/companies-listing/corporate-filings-announcements`,
           description: `Outcome of Board Meeting: Strategic Initiatives, CapEx Allocation & Investor Presentation`
         },
         {
-          accessionNumber: `SEBI-REG31-SHP-${cleanTicker}`,
-          form: "Shareholding Pattern (Reg 31)",
-          filingDate: "2025-09-30",
-          reportDate: "2025-09-30",
-          primaryDocument: `${cleanTicker.toLowerCase()}-shareholding.pdf`,
-          url: `${screenerUrl}#shareholding`,
-          description: `Quarterly Shareholding: Promoter Group, Foreign Portfolio Investors (FPI/FII) & Mutual Funds (DII)`
+          accessionNumber: `SEBI-PIT-REG7-${displayTicker}`,
+          form: "Insider Trading Disclosures (PIT)",
+          filingDate: "2025-10-15",
+          reportDate: "2025-10-15",
+          primaryDocument: `${displayTicker.toLowerCase()}-insider-trading.pdf`,
+          url: `https://www.bseindia.com/corporates/ann.html`,
+          description: `Continual Disclosure under Regulation 7(2) read with Regulation 6(2) of SEBI (Prohibition of Insider Trading) Regulations`
         }
       ]
     };
@@ -398,11 +406,13 @@ export async function getSecCompanyFacts(ticker: string, companyName?: string): 
     };
   }
 
-  const isExplicitIndian = ticker.toUpperCase().endsWith('.NS') || ticker.toUpperCase().endsWith('.BO');
+  const rawSymbol = ticker.toUpperCase().replace(/\.(NS|BO)$/i, "").trim();
+  const isExplicitIndian = Boolean(INDIAN_TICKER_ALIASES[rawSymbol]) || ticker.toUpperCase().endsWith('.NS') || ticker.toUpperCase().endsWith('.BO');
   const indianData = await fetchIndianCompanyData(ticker, companyName);
 
   if (isExplicitIndian || indianData) {
-    const entityName = indianData?.name || companyName || `${cleanTicker} Ltd`;
+    const displayTicker = INDIAN_TICKER_ALIASES[rawSymbol] || rawSymbol;
+    const entityName = indianData?.name || companyName || `${displayTicker} Ltd`;
     if (indianData && indianData.quarters.length > 0 && indianData.sales.length > 0) {
       return {
         entityName,

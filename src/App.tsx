@@ -192,6 +192,7 @@ export default function App() {
     aRef.current = controller;
     const startTimestamp = Date.now();
     let currentToolRuns = 0;
+    let hasPushedThinking = false;
 
     try {
       const resp = await fetch('/api/analyze', {
@@ -257,7 +258,10 @@ export default function App() {
               } else if (evt.type === 'tool_result') {
                   pushEvt('tool_result', `Analysis retrieved`, evt.result, undefined, evt.callId);
               } else if (evt.type === 'thinking') {
-                  pushEvt('thinking', `Analyzing...`, evt.text);
+                  if (!hasPushedThinking) {
+                      hasPushedThinking = true;
+                      pushEvt('thinking', `Synthesizing forensic findings & compiling report...`);
+                  }
               } else if (evt.type === 'complete') {
                   if (evt.interaction) {
                       const interaction = evt.interaction;
@@ -294,7 +298,10 @@ export default function App() {
         
         if (accumulatedText) {
             const foundData = parseFinalText(accumulatedText);
-            if (foundData) setRep(foundData);
+            if (foundData) {
+              setRep(foundData);
+              setIsReportOpen(model === 'perseus' ? 'perseus' : 'flash');
+            }
         }
       }
       
@@ -316,7 +323,10 @@ export default function App() {
       
       if (accumulatedText) {
           const finalData = parseFinalText(accumulatedText);
-          if (finalData) setRep(finalData);
+          if (finalData) {
+            setRep(finalData);
+            setIsReportOpen(model === 'perseus' ? 'perseus' : 'flash');
+          }
       }
       
       setDur(Math.round((Date.now() - startTimestamp) / 1000));

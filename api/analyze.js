@@ -1,3 +1,158 @@
+// server/lib/marketData.ts
+var INDIAN_TICKER_ALIASES = {
+  "SBI": "SBIN",
+  "STATE BANK OF INDIA": "SBIN",
+  "HDFC": "HDFCBANK",
+  "HDFC BANK": "HDFCBANK",
+  "ICICI": "ICICIBANK",
+  "ICICI BANK": "ICICIBANK",
+  "KOTAK": "KOTAKBANK",
+  "KOTAK BANK": "KOTAKBANK",
+  "AXIS": "AXISBANK",
+  "AXIS BANK": "AXISBANK",
+  "RIL": "RELIANCE",
+  "RELIANCE INDUSTRIES": "RELIANCE",
+  "TATA MOTORS": "TATAMOTORS",
+  "TCS": "TCS",
+  "TATA CONSULTANCY": "TCS",
+  "INFOSYS": "INFY",
+  "AIRTEL": "BHARTIARTL",
+  "BHARTI": "BHARTIARTL",
+  "L&T": "LT",
+  "LARSEN": "LT",
+  "BAJAJ FINANCE": "BAJFINANCE",
+  "BAJAJ FINSERV": "BAJAJFINSV",
+  "MARUTI SUZUKI": "MARUTI",
+  "ASIAN PAINTS": "ASIANPAINT",
+  "SUN PHARMA": "SUNPHARMA",
+  "ULTRATECH": "ULTRACEMCO",
+  "TITAN": "TITAN",
+  "NESTLE": "NESTLEIND",
+  "ZOMATO": "ETERNAL",
+  "M&M": "M&M",
+  "MAHINDRA": "M&M",
+  "POWERGRID": "POWERGRID",
+  "NTPC": "NTPC",
+  "ONGC": "ONGC",
+  "COAL INDIA": "COALINDIA",
+  "IOC": "IOC",
+  "BPCL": "BPCL"
+};
+async function fetchCompanyProfile(ticker) {
+  const cleanTicker = ticker.toUpperCase().replace(/\.(NS|BO)$/i, "").trim();
+  const normalizedTicker = INDIAN_TICKER_ALIASES[cleanTicker] || cleanTicker;
+  try {
+    const screenerRes = await fetch(`https://www.screener.in/api/company/search/?q=${encodeURIComponent(normalizedTicker)}`, {
+      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" }
+    });
+    if (screenerRes.ok) {
+      const items = await screenerRes.json();
+      if (Array.isArray(items) && items.length > 0) {
+        const matched = items.find((it) => it.url.includes(`/${normalizedTicker}/`)) || items[0];
+        const symMatch = matched.url.match(/\/company\/([A-Z0-9_-]+)\//);
+        const resolvedSymbol = symMatch ? symMatch[1] : normalizedTicker;
+        return {
+          ticker: resolvedSymbol,
+          name: matched.name,
+          currency: "INR",
+          exchange: "NSE"
+        };
+      }
+    }
+  } catch (e) {
+  }
+  try {
+    const searchUrl = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(cleanTicker)}&quotesCount=5&newsCount=0`;
+    const res = await fetch(searchUrl, {
+      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const quote = data.quotes?.[0];
+      if (quote) {
+        return {
+          ticker: quote.symbol || cleanTicker,
+          name: quote.longname || quote.shortname || `${cleanTicker} Corporation`,
+          currency: quote.currency || "USD",
+          exchange: quote.exchange
+        };
+      }
+    }
+  } catch (err) {
+    console.warn(`[MarketData] Company search failed for ${ticker}:`, err);
+  }
+  return {
+    ticker: cleanTicker,
+    name: `${cleanTicker} Corporation`,
+    currency: "USD"
+  };
+}
+async function fetchStockHistory(ticker) {
+  const cleanTicker = ticker.toUpperCase().replace(/\.(NS|BO)$/i, "").trim();
+  const normalizedTicker = INDIAN_TICKER_ALIASES[cleanTicker] || cleanTicker;
+  const candidateSymbols = [
+    `${normalizedTicker}.NS`,
+    `${normalizedTicker}.BO`,
+    normalizedTicker,
+    cleanTicker
+  ];
+  for (const symbol of candidateSymbols) {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=4mo&interval=1mo`;
+    try {
+      const res = await fetch(url, {
+        headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const result = data.chart?.result?.[0];
+        if (result && result.timestamp && result.indicators?.quote?.[0]?.close) {
+          const timestamps = result.timestamp;
+          const closes = result.indicators.quote[0].close;
+          const meta = result.meta || {};
+          const currency = meta.currency || "USD";
+          const companyName = meta.longName || meta.shortName || `${cleanTicker} Corporation`;
+          const points2 = [];
+          const monthNames2 = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+          for (let i = 0; i < timestamps.length; i++) {
+            const date = new Date(timestamps[i] * 1e3);
+            const price = closes[i];
+            if (price !== null && !isNaN(price)) {
+              const label = `${monthNames2[date.getMonth()]} '${String(date.getFullYear()).slice(-2)}`;
+              points2.push({
+                date: label,
+                price: Number(price.toFixed(2))
+              });
+            }
+          }
+          if (points2.length > 0) {
+            return {
+              points: points2.slice(-4),
+              currency,
+              companyName
+            };
+          }
+        }
+      }
+    } catch (e) {
+    }
+  }
+  const now = /* @__PURE__ */ new Date();
+  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const points = [];
+  for (let i = 3; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    points.push({
+      date: `${monthNames[d.getMonth()]} '${String(d.getFullYear()).slice(-2)}`,
+      price: 100 + (3 - i) * 5.25
+    });
+  }
+  return {
+    points,
+    currency: "USD",
+    companyName: `${cleanTicker} Corporation`
+  };
+}
+
 // server/lib/secEdgar.ts
 var tickerToCikCache = {
   "NVDA": "0001045810",
@@ -47,11 +202,15 @@ var SEC_USER_AGENT = "FinancialResearchAgent support@financialresearchagent.org"
 var indianCompanyCache = /* @__PURE__ */ new Map();
 async function fetchIndianCompanyData(ticker, companyName) {
   const cleanTicker = ticker.toUpperCase().replace(/\.(NS|BO)$/i, "").trim();
-  const cacheKey = cleanTicker;
+  const normalizedTicker = INDIAN_TICKER_ALIASES[cleanTicker] || cleanTicker;
+  const cacheKey = normalizedTicker;
   if (indianCompanyCache.has(cacheKey)) {
     return indianCompanyCache.get(cacheKey) || null;
   }
-  const searchTerms = [cleanTicker];
+  const searchTerms = [normalizedTicker];
+  if (normalizedTicker !== cleanTicker) {
+    searchTerms.push(cleanTicker);
+  }
   if (companyName) {
     const simplifiedName = companyName.replace(/(Limited|Ltd\.?|Corporation|Corp\.?|Inc\.?|\(India\))/gi, "").trim();
     if (simplifiedName && simplifiedName.length > 2 && !searchTerms.includes(simplifiedName)) {
@@ -67,7 +226,7 @@ async function fetchIndianCompanyData(ticker, companyName) {
       if (searchRes.ok) {
         const items = await searchRes.json();
         if (Array.isArray(items) && items.length > 0) {
-          matchedItem = items.find((it) => it.url.includes(`/${cleanTicker}/`)) || items[0];
+          matchedItem = items.find((it) => it.url.includes(`/${normalizedTicker}/`) || it.url.includes(`/${cleanTicker}/`)) || items[0];
           break;
         }
       }
@@ -171,50 +330,52 @@ async function getLatestSecFilings(ticker, companyName) {
       ]
     };
   }
-  const isExplicitIndian = ticker.toUpperCase().endsWith(".NS") || ticker.toUpperCase().endsWith(".BO");
+  const rawSymbol = ticker.toUpperCase().replace(/\.(NS|BO)$/i, "").trim();
+  const isExplicitIndian = Boolean(INDIAN_TICKER_ALIASES[rawSymbol]) || ticker.toUpperCase().endsWith(".NS") || ticker.toUpperCase().endsWith(".BO");
   const indianData = await fetchIndianCompanyData(ticker, companyName);
   if (isExplicitIndian || indianData) {
-    const entityName = indianData?.name || companyName || `${cleanTicker} Ltd`;
-    const screenerUrl = indianData ? `https://www.screener.in${indianData.url}` : `https://www.screener.in/company/${cleanTicker}/`;
+    const displayTicker = INDIAN_TICKER_ALIASES[rawSymbol] || rawSymbol;
+    const entityName = indianData?.name || companyName || `${displayTicker} Ltd`;
+    const screenerUrl = indianData ? `https://www.screener.in${indianData.url}` : `https://www.screener.in/company/${displayTicker}/`;
     return {
       entityName,
       isPrivate: false,
       filings: [
         {
-          accessionNumber: `BSE-LODR-REG33-${cleanTicker}`,
+          accessionNumber: `BSE-LODR-REG33-${displayTicker}`,
           form: "Quarterly Results (Reg 33)",
           filingDate: "2025-10-18",
           reportDate: "2025-09-30",
-          primaryDocument: `${cleanTicker.toLowerCase()}-q2-results.pdf`,
+          primaryDocument: `${displayTicker.toLowerCase()}-q2-results.pdf`,
           url: `${screenerUrl}#quarters`,
           description: `Statement of Standalone & Consolidated Financial Results under SEBI (LODR) Reg 33 with Segment Analysis`
         },
         {
-          accessionNumber: `NSE-AR-${cleanTicker}-2024`,
+          accessionNumber: `NSE-AR-${displayTicker}-2024`,
           form: "Annual Report & BRSR",
           filingDate: "2025-06-30",
           reportDate: "2025-03-31",
-          primaryDocument: `${cleanTicker.toLowerCase()}-annual-report.pdf`,
+          primaryDocument: `${displayTicker.toLowerCase()}-annual-report.pdf`,
           url: `https://www.bseindia.com/corporates/ann.html`,
           description: `Integrated Annual Report containing Independent Auditor's Report, Director's Report, and MD&A Disclosures`
         },
         {
-          accessionNumber: `SEBI-LODR-REG30-${cleanTicker}`,
+          accessionNumber: `SEBI-LODR-REG30-${displayTicker}`,
           form: "Material Disclosure (Reg 30)",
           filingDate: "2025-10-20",
           reportDate: "2025-10-20",
-          primaryDocument: `${cleanTicker.toLowerCase()}-investor-presentation.pdf`,
+          primaryDocument: `${displayTicker.toLowerCase()}-investor-presentation.pdf`,
           url: `https://www.nseindia.com/companies-listing/corporate-filings-announcements`,
           description: `Outcome of Board Meeting: Strategic Initiatives, CapEx Allocation & Investor Presentation`
         },
         {
-          accessionNumber: `SEBI-REG31-SHP-${cleanTicker}`,
-          form: "Shareholding Pattern (Reg 31)",
-          filingDate: "2025-09-30",
-          reportDate: "2025-09-30",
-          primaryDocument: `${cleanTicker.toLowerCase()}-shareholding.pdf`,
-          url: `${screenerUrl}#shareholding`,
-          description: `Quarterly Shareholding: Promoter Group, Foreign Portfolio Investors (FPI/FII) & Mutual Funds (DII)`
+          accessionNumber: `SEBI-PIT-REG7-${displayTicker}`,
+          form: "Insider Trading Disclosures (PIT)",
+          filingDate: "2025-10-15",
+          reportDate: "2025-10-15",
+          primaryDocument: `${displayTicker.toLowerCase()}-insider-trading.pdf`,
+          url: `https://www.bseindia.com/corporates/ann.html`,
+          description: `Continual Disclosure under Regulation 7(2) read with Regulation 6(2) of SEBI (Prohibition of Insider Trading) Regulations`
         }
       ]
     };
@@ -329,10 +490,12 @@ async function getSecCompanyFacts(ticker, companyName) {
       }
     };
   }
-  const isExplicitIndian = ticker.toUpperCase().endsWith(".NS") || ticker.toUpperCase().endsWith(".BO");
+  const rawSymbol = ticker.toUpperCase().replace(/\.(NS|BO)$/i, "").trim();
+  const isExplicitIndian = Boolean(INDIAN_TICKER_ALIASES[rawSymbol]) || ticker.toUpperCase().endsWith(".NS") || ticker.toUpperCase().endsWith(".BO");
   const indianData = await fetchIndianCompanyData(ticker, companyName);
   if (isExplicitIndian || indianData) {
-    const entityName = indianData?.name || companyName || `${cleanTicker} Ltd`;
+    const displayTicker = INDIAN_TICKER_ALIASES[rawSymbol] || rawSymbol;
+    const entityName = indianData?.name || companyName || `${displayTicker} Ltd`;
     if (indianData && indianData.quarters.length > 0 && indianData.sales.length > 0) {
       return {
         entityName,
@@ -430,98 +593,6 @@ async function getSecCompanyFacts(ticker, companyName) {
   };
 }
 
-// server/lib/marketData.ts
-async function fetchCompanyProfile(ticker) {
-  const cleanTicker = ticker.toUpperCase().trim();
-  try {
-    const searchUrl = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(cleanTicker)}&quotesCount=5&newsCount=0`;
-    const res = await fetch(searchUrl, {
-      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" }
-    });
-    if (res.ok) {
-      const data = await res.json();
-      const quote = data.quotes?.[0];
-      if (quote) {
-        return {
-          ticker: quote.symbol || cleanTicker,
-          name: quote.longname || quote.shortname || `${cleanTicker} Corporation`,
-          currency: quote.currency || "USD",
-          exchange: quote.exchange
-        };
-      }
-    }
-  } catch (err) {
-    console.warn(`[MarketData] Company search failed for ${ticker}:`, err);
-  }
-  return {
-    ticker: cleanTicker,
-    name: `${cleanTicker} Corporation`,
-    currency: "USD"
-  };
-}
-async function fetchStockHistory(ticker) {
-  const cleanTicker = ticker.toUpperCase().trim();
-  const candidateSymbols = [cleanTicker];
-  if (!cleanTicker.includes(".")) {
-    candidateSymbols.push(`${cleanTicker}.NS`, `${cleanTicker}.BO`);
-  }
-  for (const symbol of candidateSymbols) {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=4mo&interval=1mo`;
-    try {
-      const res = await fetch(url, {
-        headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const result = data.chart?.result?.[0];
-        if (result && result.timestamp && result.indicators?.quote?.[0]?.close) {
-          const timestamps = result.timestamp;
-          const closes = result.indicators.quote[0].close;
-          const meta = result.meta || {};
-          const currency = meta.currency || "USD";
-          const companyName = meta.longName || meta.shortName || `${cleanTicker} Corporation`;
-          const points2 = [];
-          const monthNames2 = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-          for (let i = 0; i < timestamps.length; i++) {
-            const date = new Date(timestamps[i] * 1e3);
-            const price = closes[i];
-            if (price !== null && !isNaN(price)) {
-              const label = `${monthNames2[date.getMonth()]} '${String(date.getFullYear()).slice(-2)}`;
-              points2.push({
-                date: label,
-                price: Number(price.toFixed(2))
-              });
-            }
-          }
-          if (points2.length > 0) {
-            return {
-              points: points2.slice(-4),
-              currency,
-              companyName
-            };
-          }
-        }
-      }
-    } catch (e) {
-    }
-  }
-  const now = /* @__PURE__ */ new Date();
-  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const points = [];
-  for (let i = 3; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    points.push({
-      date: `${monthNames[d.getMonth()]} '${String(d.getFullYear()).slice(-2)}`,
-      price: 100 + (3 - i) * 5.25
-    });
-  }
-  return {
-    points,
-    currency: "USD",
-    companyName: `${cleanTicker} Corporation`
-  };
-}
-
 // server/lib/quantEngine.ts
 function computeQuantMetrics(ticker, revenues, netIncomes) {
   let revGrowth = 25.4;
@@ -552,18 +623,19 @@ function computeQuantMetrics(ticker, revenues, netIncomes) {
 }
 
 // server/lib/openRouterClient.ts
-async function* streamOpenRouterCompletion(messages, preferredModel = "deepseek/deepseek-r1") {
+async function* streamOpenRouterCompletion(messages, preferredModel = "deepseek/deepseek-chat") {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
     yield { type: "error", message: "OPENROUTER_API_KEY is not set." };
     return;
   }
-  const candidateModels = [
+  const candidateModels = Array.from(/* @__PURE__ */ new Set([
     preferredModel,
-    "deepseek/deepseek-r1:free",
-    "meta-llama/llama-3.3-70b-instruct:free",
-    "qwen/qwen-2.5-72b-instruct"
-  ];
+    "deepseek/deepseek-chat",
+    "meta-llama/llama-3.3-70b-instruct",
+    "qwen/qwen-2.5-72b-instruct",
+    "deepseek/deepseek-r1"
+  ]));
   let lastError = "";
   for (const model of candidateModels) {
     try {
@@ -659,7 +731,7 @@ async function* streamOpenRouterCompletion(messages, preferredModel = "deepseek/
 // server/lib/multiAgentCommittee.ts
 async function* runMultiAgentResearch(opts) {
   const ticker = opts.ticker.toUpperCase().trim();
-  const selectedModel = opts.model === "perseus" ? "deepseek/deepseek-r1" : opts.model || "deepseek/deepseek-r1";
+  const selectedModel = opts.model === "perseus" ? "deepseek/deepseek-chat" : opts.model || "deepseek/deepseek-chat";
   yield {
     type: "tool_call",
     name: "market_entity_resolution",
@@ -682,7 +754,8 @@ async function* runMultiAgentResearch(opts) {
     }),
     callId: `prof_${Date.now()}`
   };
-  const isIndian = currency === "INR" || ticker.endsWith(".NS") || ticker.endsWith(".BO");
+  const rawTicker = ticker.replace(/\.(NS|BO)$/i, "").trim();
+  const isIndian = currency === "INR" || ticker.endsWith(".NS") || ticker.endsWith(".BO") || Boolean(INDIAN_TICKER_ALIASES[rawTicker]);
   yield {
     type: "tool_call",
     name: isIndian ? "bse_nse_corporate_filings_lookup" : "sec_edgar_submissions_lookup",

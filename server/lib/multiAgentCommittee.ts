@@ -1,5 +1,5 @@
 import { getLatestSecFilings, getSecCompanyFacts } from "./secEdgar.ts";
-import { fetchCompanyProfile, fetchStockHistory } from "./marketData.ts";
+import { INDIAN_TICKER_ALIASES, fetchCompanyProfile, fetchStockHistory } from "./marketData.ts";
 import { computeQuantMetrics } from "./quantEngine.ts";
 import { streamOpenRouterCompletion, StreamEvent, OpenRouterMessage } from "./openRouterClient.ts";
 
@@ -13,7 +13,7 @@ export async function* runMultiAgentResearch(
   opts: MultiAgentCommitteeOptions
 ): AsyncGenerator<StreamEvent> {
   const ticker = opts.ticker.toUpperCase().trim();
-  const selectedModel = opts.model === 'perseus' ? 'deepseek/deepseek-r1' : (opts.model || 'deepseek/deepseek-r1');
+  const selectedModel = opts.model === 'perseus' ? 'deepseek/deepseek-chat' : (opts.model || 'deepseek/deepseek-chat');
 
   // Step 1: Resolve Company Profile & Market Data
   yield {
@@ -41,7 +41,8 @@ export async function* runMultiAgentResearch(
     callId: `prof_${Date.now()}`
   };
 
-  const isIndian = currency === "INR" || ticker.endsWith(".NS") || ticker.endsWith(".BO");
+  const rawTicker = ticker.replace(/\.(NS|BO)$/i, "").trim();
+  const isIndian = currency === "INR" || ticker.endsWith(".NS") || ticker.endsWith(".BO") || Boolean(INDIAN_TICKER_ALIASES[rawTicker]);
 
   // Step 2: Ingest Filings (BSE/NSE or SEC)
   yield {

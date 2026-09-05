@@ -16,7 +16,7 @@ export interface StreamEvent {
 
 export async function* streamOpenRouterCompletion(
   messages: OpenRouterMessage[],
-  preferredModel: string = "deepseek/deepseek-r1"
+  preferredModel: string = "deepseek/deepseek-chat"
 ): AsyncGenerator<StreamEvent> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
@@ -24,13 +24,14 @@ export async function* streamOpenRouterCompletion(
     return;
   }
 
-  // Model fallback chain: try preferred model -> free reasoning model -> free general model
-  const candidateModels = [
+  // Model fallback chain: fast chat model -> resilient general instruct models
+  const candidateModels = Array.from(new Set([
     preferredModel,
-    "deepseek/deepseek-r1:free",
-    "meta-llama/llama-3.3-70b-instruct:free",
-    "qwen/qwen-2.5-72b-instruct"
-  ];
+    "deepseek/deepseek-chat",
+    "meta-llama/llama-3.3-70b-instruct",
+    "qwen/qwen-2.5-72b-instruct",
+    "deepseek/deepseek-r1"
+  ]));
 
   let lastError = "";
 
