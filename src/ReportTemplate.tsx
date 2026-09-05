@@ -39,6 +39,9 @@ export default function ReportTemplate({ data, ticker, onClose, durationSecs = 0
     return 'text-red-600';
   };
 
+  const isINR = data.currency === 'INR' || ticker.toUpperCase().endsWith('.NS') || ticker.toUpperCase().endsWith('.BO');
+  const currencySymbol = isINR ? '₹' : '$';
+  const unitSuffix = isINR ? ' Cr' : 'B';
   const findings = data.findings || [];
   
   return (
@@ -124,16 +127,16 @@ export default function ReportTemplate({ data, ticker, onClose, durationSecs = 0
         {/* Financial Charts */}
         {data.financial_charts && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
-            <AnalysisCard title="Stock Price" subtext="This chart shows the closing price for the past four months on the last trading date.">
+            <AnalysisCard title="Stock Price" subtext={`This chart shows the closing price for the past four months on the last trading date (${currencySymbol}).`}>
               <div className="h-64 mt-4">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={data.financial_charts.stock_price_4m ? [...data.financial_charts.stock_price_4m] : []}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e5e4" />
                     <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#78716c' }} dy={10} />
-                    <YAxis domain={['auto', 'auto']} axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#78716c' }} dx={-10} />
+                    <YAxis domain={['auto', 'auto']} axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#78716c' }} dx={-10} tickFormatter={(val) => `${currencySymbol}${val >= 1000 ? (val/1000).toFixed(1) + 'k' : val}`} />
                     <RechartsTooltip 
                       contentStyle={{ borderRadius: '8px', border: '1px solid #e5e5e4', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                      formatter={(value: number) => [`$${value}`, 'Price']}
+                      formatter={(value: number) => [`${currencySymbol}${value.toLocaleString()}`, 'Price']}
                     />
                     <Line type="linear" dataKey="price" stroke="#0b5a4b" strokeWidth={2} dot={{ r: 4, fill: '#0b5a4b', strokeWidth: 0 }} activeDot={{ r: 6 }} />
                   </LineChart>
@@ -141,27 +144,31 @@ export default function ReportTemplate({ data, ticker, onClose, durationSecs = 0
               </div>
             </AnalysisCard>
             
-                        <AnalysisCard 
+            <AnalysisCard 
               title="Financial Performance"
-              subtext={data.financial_charts.financial_performance_4q && data.financial_charts.financial_performance_4q.length > 0 && data.financial_charts.financial_performance_4q[0].distributions !== undefined ? "This chart shows the quarterly distributions (dividends/yield per share) for the past four completed quarters." : "This chart shows the revenue and net income for the past four completed quarters."}
+              subtext={data.financial_charts.financial_performance_4q && data.financial_charts.financial_performance_4q.length > 0 && data.financial_charts.financial_performance_4q[0].distributions !== undefined 
+                ? `This chart shows the quarterly distributions (${currencySymbol}) for the past four completed quarters.` 
+                : isINR 
+                  ? "This chart shows the quarterly revenue and net profit for the past four completed quarters (in ₹ Crores)." 
+                  : "This chart shows the revenue and net income for the past four completed quarters."}
             >
               <div className="h-64 mt-4">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={data.financial_charts.financial_performance_4q ? [...data.financial_charts.financial_performance_4q] : []}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e5e4" />
                     <XAxis dataKey="quarter" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#78716c' }} dy={10} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#78716c' }} dx={-10} tickFormatter={(value) => data.financial_charts?.financial_performance_4q?.[0]?.distributions !== undefined ? `$${value}` : `${value}B`} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#78716c' }} dx={-10} tickFormatter={(value) => data.financial_charts?.financial_performance_4q?.[0]?.distributions !== undefined ? `${currencySymbol}${value}` : `${currencySymbol}${value >= 1000 ? (value / 1000).toFixed(1) + 'k' : value}${unitSuffix}`} />
                     <RechartsTooltip 
                       contentStyle={{ borderRadius: '8px', border: '1px solid #e5e5e4', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                      formatter={(value: number, name: string) => name === 'Distributions' ? [`$${value}`, name] : [`$${value}B`, name]}
+                      formatter={(value: number, name: string) => name === 'Distributions' ? [`${currencySymbol}${value}`, name] : [`${currencySymbol}${value.toLocaleString()}${unitSuffix}`, name]}
                     />
                     <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '20px' }} />
                     {data.financial_charts.financial_performance_4q && data.financial_charts.financial_performance_4q.length > 0 && data.financial_charts.financial_performance_4q[0].distributions !== undefined ? (
                       <Bar dataKey="distributions" name="Distributions" fill="#10b981" radius={[4, 4, 0, 0]} barSize={48} />
                     ) : (
                       <>
-                        <Bar dataKey="revenue" name="Revenue" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={32} />
-                        <Bar dataKey="net_income" name="Net Income" fill="#1e3a8a" radius={[4, 4, 0, 0]} barSize={32} />
+                        <Bar dataKey="revenue" name={isINR ? "Revenue (Sales)" : "Revenue"} fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={32} />
+                        <Bar dataKey="net_income" name={isINR ? "Net Profit" : "Net Income"} fill="#1e3a8a" radius={[4, 4, 0, 0]} barSize={32} />
                       </>
                     )}
                   </BarChart>

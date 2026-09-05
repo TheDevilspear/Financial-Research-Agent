@@ -23,6 +23,7 @@ export interface DeepInsight {
 }
 
 export interface ReportData {
+  currency?: string;
   verdict?: {
     summary: string;
     conviction_score: number;
@@ -237,8 +238,18 @@ export default function App() {
                   currentToolRuns += 1;
                   setTRuns(currentToolRuns);
                   let label = "Searching for documents...";
-                  if (evt.name === "google_search") {
-                    label = `Searching web: ${evt.arguments?.query || ''}`;
+                  if (evt.name === "market_entity_resolution") {
+                    label = `Resolving market entity: ${evt.arguments?.ticker || ''}`;
+                  } else if (evt.name === "bse_nse_corporate_filings_lookup") {
+                    label = `Retrieving BSE / NSE corporate filings`;
+                  } else if (evt.name === "bse_nse_financial_results_extraction") {
+                    label = `Extracting quarterly financial statements (₹ Crores)`;
+                  } else if (evt.name === "sec_edgar_submissions_lookup") {
+                    label = `Querying SEC EDGAR filings`;
+                  } else if (evt.name === "sec_xbrl_company_facts_extraction") {
+                    label = `Extracting audited XBRL financial statements`;
+                  } else if (evt.name === "python_quantitative_engine") {
+                    label = `Running forensic quant models (Piotroski & Z-Score)`;
                   } else if (evt.name) {
                     label = `Using tool: ${evt.name}`;
                   }

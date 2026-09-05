@@ -11,7 +11,7 @@ export function LandingView() {
             Tickr, your intelligent <span className="italic font-serif">financial document</span> analyzer
           </h1>
           <p className="text-lg text-[#b3b3b3] font-medium">
-            Automatically finds and synthesizes recent SEC filings and public disclosures.
+            Automatically finds and synthesizes official exchange filings (NSE, BSE & SEC) and corporate disclosures.
           </p>
         </div>
 
@@ -21,31 +21,31 @@ export function LandingView() {
           {/* Card 1: Documents */}
           <div className="bg-black/20 backdrop-blur-md border border-white/10 rounded-none p-6 shadow-2xl flex flex-col hover:bg-black/30 transition-colors">
             <h3 className="text-xl font-medium text-white mb-6 text-left">
-              Comprehensive SEC document coverage.
+              Comprehensive exchange & regulatory coverage.
             </h3>
             
             <div className="flex-1 flex flex-col gap-3">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white"><FileText className="w-4 h-4" /></div>
                 <div className="flex-1">
-                  <div className="text-sm font-medium text-white">Form 10-K & 10-Q</div>
-                  <div className="text-xs text-white/60">Annual and Quarterly Reports</div>
+                  <div className="text-sm font-medium text-white">Annual Reports & Reg 33 Results</div>
+                  <div className="text-xs text-white/60">NSE & BSE Financial Statements / SEC 10-K & 10-Q</div>
                 </div>
               </div>
               <div className="w-full h-px bg-white/10 my-1"></div>
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white"><Activity className="w-4 h-4" /></div>
                 <div className="flex-1">
-                  <div className="text-sm font-medium text-white">Form 8-K</div>
-                  <div className="text-xs text-white/60">Current / Material Events</div>
+                  <div className="text-sm font-medium text-white">Material Events & SEBI LODR Filings</div>
+                  <div className="text-xs text-white/60">Board Outcomes, Earnings Calls & Form 8-K</div>
                 </div>
               </div>
               <div className="w-full h-px bg-white/10 my-1"></div>
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white"><ShieldAlert className="w-4 h-4" /></div>
                 <div className="flex-1">
-                  <div className="text-sm font-medium text-white">Forms 3, 4, 5 & 13F</div>
-                  <div className="text-xs text-white/60">Insider & Institutional Holdings</div>
+                  <div className="text-sm font-medium text-white">Shareholding & Institutional Filings</div>
+                  <div className="text-xs text-white/60">Promoter Pledging, FII / DII Allocations & 13F</div>
                 </div>
               </div>
             </div>
@@ -54,23 +54,23 @@ export function LandingView() {
           {/* Card 2: Analysis */}
           <div className="bg-black/20 backdrop-blur-md border border-white/10 rounded-none p-6 shadow-2xl flex flex-col hover:bg-black/30 transition-colors">
             <h3 className="text-xl font-medium text-white mb-6 text-left">
-              Deep insights pulled directly from the source.
+              Deep insights pulled directly from official filings.
             </h3>
             
             <div className="flex-1 flex flex-col gap-4 justify-center">
               <div className="flex items-center gap-3">
                 <CheckCircle2 className="w-5 h-5 text-[#b3b3b3] shrink-0" />
-                <div className="text-sm text-white/90 font-medium">Identify key takeaways and risks</div>
+                <div className="text-sm text-white/90 font-medium">Forensic audit of revenue, margins & balance sheet</div>
               </div>
               <div className="w-full h-px bg-white/10"></div>
               <div className="flex items-center gap-3">
                 <CheckCircle2 className="w-5 h-5 text-[#b3b3b3] shrink-0" />
-                <div className="text-sm text-white/90 font-medium">Extract management commentary</div>
+                <div className="text-sm text-white/90 font-medium">Extract management commentary & concall takeaways</div>
               </div>
               <div className="w-full h-px bg-white/10"></div>
               <div className="flex items-center gap-3">
                 <CheckCircle2 className="w-5 h-5 text-[#b3b3b3] shrink-0" />
-                <div className="text-sm text-white/90 font-medium">Synthesize multiple filings into one report</div>
+                <div className="text-sm text-white/90 font-medium">Adversarial 4-agent Bull, Bear & CIO conviction thesis</div>
               </div>
             </div>
           </div>
