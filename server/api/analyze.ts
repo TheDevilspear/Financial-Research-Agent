@@ -1,4 +1,4 @@
-import { runMultiAgentResearch } from "../server/lib/multiAgentCommittee.ts";
+import { runMultiAgentResearch } from "../lib/multiAgentCommittee.ts";
 
 export const config = {
   maxDuration: 60,

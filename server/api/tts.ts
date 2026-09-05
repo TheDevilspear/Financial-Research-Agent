@@ -1,4 +1,4 @@
-import { generatePodcastAudio } from "../server/lib/podcastGenerator.ts";
+import { generatePodcastAudio } from "../lib/podcastGenerator.ts";
 
 export const config = {
   maxDuration: 30,

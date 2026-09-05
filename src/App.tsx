@@ -1,7 +1,7 @@
 import { LandingView } from './LandingView';
 import React, { useState, useRef, useEffect } from 'react';
 import { PulsatingDotsBackground } from './components/PulsatingDots';
-import { Search, Loader2 } from 'lucide-react';
+import { Search, Loader2, Sparkles } from 'lucide-react';
 import ReportTemplate from "./ReportTemplate";
 import { AgentTimeline, TimelineEvent } from './components/AgentTimeline';
 
@@ -43,7 +43,7 @@ export default function App() {
   const [ticker, setTicker] = useState('');
   const [instruction, setInstruction] = useState('');
   
-  // Gemini 3.5 Flash state
+  // Research Agent state
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reportData, setReportData] = useState<ReportData | null>(null);
@@ -326,7 +326,6 @@ export default function App() {
     if (!ticker.trim() || running || runningPerseus) return;
     setIsReportOpen(false);
     
-    startStream('gemini-3.5-flash', setRunning, setError, setReportData, setEvents, pushEvent, setTokenCount, setToolRuns, setDurationSecs, setStartTime, abortRef, eventIdRef);
     startStream('perseus', setRunningPerseus, setErrorPerseus, setReportDataPerseus, setEventsPerseus, pushEventPerseus, setTokenCountPerseus, setToolRunsPerseus, setDurationSecsPerseus, setStartTimePerseus, abortRefPerseus, eventIdRefPerseus);
   };
 
@@ -381,8 +380,8 @@ export default function App() {
               <div className="flex-1 flex flex-col bg-stone-900/50 rounded-xl border border-stone-800 overflow-hidden min-h-0">
                 <div className="p-3 bg-stone-800/80 border-b border-stone-700 font-bold text-stone-200 text-sm flex justify-between items-center">
                   <div className="flex items-center gap-2">
-                    <img src="https://www.gstatic.com/lamda/images/gemini_sparkle_aurora_33f86dc0c0257da337c63.svg" alt="Gemini Sparkle" className="w-5 h-5" />
-                    <span>Gemini Managed Agents</span>
+                    <Sparkles className="w-5 h-5 text-amber-400" />
+                    <span>Autonomous Research Agents</span>
                   </div>
                   {runningPerseus && <Loader2 className="w-4 h-4 animate-spin text-stone-400" />}
                 </div>
@@ -433,7 +432,7 @@ export default function App() {
             </div>
             
             <div className="text-center mt-4">
-              <span className="text-xs text-stone-500 font-mono tracking-wider">Gemini can make mistakes, don’t rely on it for financial advice.</span>
+              <span className="text-xs text-stone-500 font-mono tracking-wider">AI can make mistakes, don’t rely on it for financial advice.</span>
             </div>
           </div>
         </div>
